@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Harjuta mõõteriistade skaaladelt lugemist: mõõtepiirkond, jaotise väärtus, mõõtmistäpsus ja näit.">
+<title>Skaala lugemine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E6ECEE; --panel:#F6F8F9; --face:#FFFFFF; --ink:#18232C; --muted:#53626C;
+  --line:#C3CED4; --grid:rgba(29,94,122,.07); --grid2:rgba(29,94,122,.15);
+  --needle:#D2232A; --accent:#1D5E7A; --accent-ink:#FFFFFF; --ok:#1E7A46; --bad:#B3261E;
+  color-scheme:light;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#11181D; --panel:#172128; --face:#1E2A32; --ink:#E6ECEF; --muted:#9AAAB4;
+    --line:#34454F; --grid:rgba(111,179,210,.06); --grid2:rgba(111,179,210,.13);
+    --needle:#FF5C5C; --accent:#6FB3D2; --accent-ink:#0E1A20; --ok:#5CC98A; --bad:#FF8A80;
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#11181D; --panel:#172128; --face:#1E2A32; --ink:#E6ECEF; --muted:#9AAAB4;
+  --line:#34454F; --grid:rgba(111,179,210,.06); --grid2:rgba(111,179,210,.13);
+  --needle:#FF5C5C; --accent:#6FB3D2; --accent-ink:#0E1A20; --ok:#5CC98A; --bad:#FF8A80;
+  color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:'Atkinson Hyperlegible',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  font-size:17px;line-height:1.5}
+.wrap{max-width:1100px;margin:0 auto;padding:24px 20px 48px}
+
+header{display:flex;flex-wrap:wrap;gap:12px 32px;align-items:flex-end;justify-content:space-between;margin-bottom:20px}
+h1{font-size:clamp(2rem,4.5vw,2.8rem);line-height:1.05;margin:0;letter-spacing:-.015em}
+.sub{margin:.45em 0 0;color:var(--muted);max-width:54ch}
+.score{color:var(--muted);font-size:.95rem;white-space:nowrap}
+.score b{color:var(--ink);font-size:1.35rem}
+
+.tabs{display:flex;gap:4px;background:var(--panel);padding:5px;border-radius:12px;border:1px solid var(--line);width:fit-content;max-width:100%;overflow-x:auto}
+.tabs button{font:inherit;font-weight:700;border:0;background:transparent;cursor:pointer;padding:9px 16px;border-radius:8px;color:var(--muted);white-space:nowrap}
+.tabs button[aria-selected="true"]{background:var(--accent);color:var(--accent-ink)}
+
+.units{margin:14px 0 20px}
+.units summary{cursor:pointer;color:var(--muted);font-weight:700;width:fit-content}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.chip{font:inherit;font-weight:700;padding:5px 13px;border-radius:999px;border:2px solid var(--line);background:transparent;color:var(--muted);cursor:pointer;text-decoration:line-through}
+.chip[aria-pressed="true"]{border-color:var(--accent);background:var(--face);color:var(--ink);text-decoration:none}
+
+.work{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:840px){.work{grid-template-columns:1fr}}
+
+.bench{background-color:var(--panel);
+  background-image:
+    linear-gradient(var(--grid2) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid2) 1px,transparent 1px),
+    linear-gradient(var(--grid) 1px,transparent 1px),
+    linear-gradient(90deg,var(--grid) 1px,transparent 1px);
+  background-size:50px 50px,50px 50px,10px 10px,10px 10px;
+  border:1px solid var(--line);border-radius:16px;padding:14px 16px 20px}
+.bench h2{margin:0 0 6px;font-size:1.05rem;color:var(--muted)}
+#stage{display:flex;justify-content:center}
+#stage svg{display:block;-webkit-user-select:none;user-select:none}
+svg.h{width:100%;height:auto}
+svg.v{height:min(560px,62vh);width:auto;max-width:100%}
+svg.d{width:min(100%,430px);height:auto}
+svg.live{touch-action:none;cursor:grab}
+svg.live:active{cursor:grabbing}
+
+.s-body{fill:var(--face);stroke:var(--ink);stroke-width:2}
+.s-glass{fill:var(--face);stroke:var(--ink);stroke-width:1.6}
+.s-slot{fill:var(--bg);stroke:var(--ink);stroke-width:1.2}
+.s-tick{stroke:var(--ink);stroke-width:1.1}
+.s-tick.md{stroke-width:1.5}
+.s-tick.mj{stroke-width:2.2}
+.s-lbl{fill:var(--ink);font-family:'Atkinson Hyperlegible',system-ui,sans-serif;font-weight:700;font-size:17px}
+.s-unit{fill:var(--muted);font-family:'Atkinson Hyperlegible',system-ui,sans-serif;font-weight:700;font-size:21px}
+.s-ndl{fill:var(--needle);stroke:var(--needle)}
+.s-liq{fill:var(--needle)}
+.s-hub{fill:var(--ink)}
+.s-rod{fill:none;stroke:var(--muted);stroke-width:3}
+.s-spring{fill:none;stroke:var(--muted);stroke-width:2;stroke-linejoin:round}
+
+.task{background:var(--face);border:1px solid var(--line);border-radius:16px;padding:20px}
+.prompt{font-size:1.12rem;margin:0 0 16px}
+.target{display:block;font-size:1.9rem;font-weight:700;margin-top:4px}
+.row{margin-bottom:14px}
+.row .lab{display:block;font-weight:700;margin-bottom:4px}
+.inline{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+input{font:inherit;font-size:1.15rem;width:6.2em;padding:7px 10px;border:2px solid var(--line);border-radius:8px;background:var(--face);color:var(--ink)}
+input:focus{outline:none;border-color:var(--accent)}
+input.ok{border-color:var(--ok)}
+input.bad{border-color:var(--bad)}
+.u{color:var(--muted);font-weight:700}
+.mark{font-weight:700;min-width:1.2em}
+.mark.ok{color:var(--ok)}
+.mark.bad{color:var(--bad)}
+.hint{color:var(--muted);font-size:.95rem;margin:0 0 16px}
+.btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.btn{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:2px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.fb{margin-top:16px;padding:10px 14px;border-left:4px solid var(--line);background:var(--panel);border-radius:0 10px 10px 0}
+.fb:empty{display:none}
+.fb.ok{border-color:var(--ok)}
+.fb.bad{border-color:var(--bad)}
+.fb p{margin:.35em 0}
+.fb .head{font-weight:700}
+.fb.ok .head{color:var(--ok)}
+.fb.bad .head{color:var(--bad)}
+
+button:focus-visible,summary:focus-visible,svg:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>Skaala lugemine</h1>
+      <p class="sub">Harjuta mõõteriistade skaaladelt lugemist: mõõtepiirkond, jaotise väärtus, mõõtmistäpsus ja näit.</p>
+    </div>
+    <div class="score" aria-live="polite">Esimesel katsel õigesti: <b id="sc-first">0</b> / <span id="sc-total">0</span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Harjutuse liik">
+    <button role="tab" data-mode="1" aria-selected="true">1. Skaala andmed</button>
+    <button role="tab" data-mode="2" aria-selected="false">2. Näidu lugemine</button>
+    <button role="tab" data-mode="3" aria-selected="false">3. Osuti seadmine</button>
+  </nav>
+
+  <details class="units">
+    <summary>Ühikud harjutuses</summary>
+    <div class="chips" id="chips"></div>
+  </details>
+
+  <main class="work">
+    <section class="bench" aria-labelledby="inst-name">
+      <h2 id="inst-name"></h2>
+      <div id="stage"></div>
+    </section>
+    <section class="task" id="task" aria-live="off"></section>
+  </main>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- abifunktsioonid ---------- */
+const $ = s => document.querySelector(s);
+const rnd = (a,b) => a + Math.floor(Math.random()*(b-a+1));
+const pick = a => a[Math.floor(Math.random()*a.length)];
+const R6 = x => Math.round(x*1e6)/1e6;
+const f1 = n => n.toFixed(1);
+const DEG = Math.PI/180;
+
+function isNice(x){
+  const e = Math.floor(Math.log10(x)+1e-9);
+  const m = R6(x/Math.pow(10,e));
+  return m===1 || m===2 || m===5;
+}
+function fmt(x){ return String(R6(x)).replace('.',',').replace('-','−'); }
+function fmtSub(x){ return x<0 ? '('+fmt(x)+')' : fmt(x); }
+function parseNum(s){
+  if(s==null) return null;
+  s = String(s).trim().replace(/\s+/g,'').replace(',','.').replace(/[−–]/g,'-');
+  if(!/^[-+]?(\d+\.?\d*|\.\d+)$/.test(s)) return null;
+  return Number(s);
+}
+const same = (a,b,d) => a!==null && Math.abs(a-b) < d*1e-3 + 1e-9;
+const val = (sc,i) => R6(sc.min + i*sc.d);
+const tickCls = (sc,i) => i%sc.k===0 ? 'mj' : (sc.k%2===0 && i%(sc.k/2)===0 ? 'md' : 'mn');
+const jw = m => m===1 ? 'jaotis' : 'jaotist';
+
+/* ---------- mõõteriistad ja ühikud ---------- */
+const UNITS = [
+  {u:'mm',   name:'Joonlaud',        type:'h',      ds:[0.5,1,2],          N:[16,50]},
+  {u:'cm',   name:'Joonlaud',        type:'h',      ds:[0.1,0.2,0.5,1],    N:[16,50]},
+  {u:'m',    name:'Mõõdulint',       type:'h',      ds:[0.1,0.2,0.5,1,2],  N:[16,50]},
+  {u:'km',   name:'Kaardi mõõtkava', type:'h',      ds:[1,2,5,10],         N:[10,40]},
+  {u:'N',    name:'Dünamomeeter',    type:'spring', ds:[0.1,0.2,0.5,1],    N:[10,50]},
+  {u:'°C',   name:'Termomeeter',     type:'thermo', ds:[0.1,0.2,0.5,1,2,5],N:[16,60]},
+  {u:'s',    name:'Stopper',         type:'circle', ds:[0.2,0.5,1],        N:[30,60], maxes:[10,15,20,30,60]},
+  {u:'km/h', name:'Spidomeeter',     type:'arc',    ds:[1,2,5,10],         N:[16,60]},
+  {u:'m/s',  name:'Kiirusemõõtja',   type:'arc',    ds:[0.1,0.2,0.5,1,2],  N:[16,60]},
+  {u:'J',    name:'Energiamõõtja',   type:'arc',    ds:[0.5,1,2,5,10,20],  N:[16,50]}
+];
+
+function genScale(cfg){
+  for(let t=0;t<2000;t++){
+    const d = pick(cfg.ds), k = pick([2,4,5,10]), ls = R6(d*k);
+    if(!isNice(ls)) continue;
+    const L = rnd(2,12), N = k*L;
+    if(N<cfg.N[0] || N>cfg.N[1]) continue;
+    if(cfg.type==='circle' && L<4) continue;
+    let min = 0;
+    if(cfg.type==='thermo'){
+      if(d<=0.2) min = R6(Math.round(pick([34,35,36])/ls)*ls);
+      else { min = R6(-ls*rnd(0,4)); if(min<-40) continue; }
+    }
+    const max = R6(min + N*d);
+    if(cfg.maxes && !cfg.maxes.includes(max)) continue;
+    return {min,max,d,k,ls,N,unit:cfg.u,name:cfg.name,type:cfg.type};
+  }
+  return {min:0,max:10,d:0.5,k:2,ls:1,N:20,unit:cfg.u,name:cfg.name,type:cfg.type};
+}
+
+/* ---------- skaalade joonistamine ---------- */
+const T = {};
+
+T.h = { cls:'h', vb:'0 30 640 150', x0:44, w:552, top:70,
+  X(sc,v){ return this.x0 + (v-sc.min)/(sc.max-sc.min)*this.w; },
+  stat(sc){
+    const top=this.top;
+    let s=`<rect x="14" y="${top}" width="612" height="100" rx="6" class="s-body"/>`;
+    for(let i=0;i<=sc.N;i++){
+      const x=f1(this.X(sc,val(sc,i))), c=tickCls(sc,i), len=c==='mj'?34:c==='md'?23:14;
+      s+=`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+len}" class="s-tick ${c}"/>`;
+      if(c==='mj') s+=`<text x="${x}" y="${top+57}" text-anchor="middle" class="s-lbl">${fmt(val(sc,i))}</text>`;
+    }
+    s+=`<text x="612" y="${top+89}" text-anchor="end" class="s-unit">${sc.unit}</text>`;
+    return s;
+  },
+  ptr(sc,v){
+    const x=this.X(sc,v), top=this.top;
+    return `<line x1="${f1(x)}" y1="${top-6}" x2="${f1(x)}" y2="${top+36}" class="s-ndl" stroke-width="2"/>`+
+           `<polygon points="${f1(x)},${top-1} ${f1(x-12)},${top-28} ${f1(x+12)},${top-28}" class="s-ndl"/>`;
+  },
+  pick(sc,p){ return sc.min + (p.x-this.x0)/this.w*(sc.max-sc.min); },
+  subj:'osuti'
+};
+
+T.thermo = { cls:'v', vb:'0 0 260 560', xT:100, yb:456, yt:60,
+  Y(sc,v){ return this.yb - (v-sc.min)/(sc.max-sc.min)*(this.yb-this.yt); },
+  stat(sc){
+    const xT=this.xT;
+    let s=`<rect x="40" y="14" width="180" height="530" rx="16" class="s-body"/>`+
+          `<rect x="${xT-10}" y="32" width="20" height="474" rx="10" class="s-glass"/>`+
+          `<circle cx="${xT}" cy="500" r="25" class="s-glass"/><circle cx="${xT}" cy="500" r="19" class="s-liq"/>`;
+    for(let i=0;i<=sc.N;i++){
+      const y=f1(this.Y(sc,val(sc,i))), c=tickCls(sc,i), len=c==='mj'?30:c==='md'?20:12;
+      s+=`<line x1="${xT+14}" y1="${y}" x2="${xT+14+len}" y2="${y}" class="s-tick ${c}"/>`;
+      if(c==='mj') s+=`<text x="${xT+52}" y="${f1(+y+6)}" class="s-lbl">${fmt(val(sc,i))}</text>`;
+    }
+    s+=`<text x="${xT+52}" y="38" class="s-unit">°C</text>`;
+    return s;
+  },
+  ptr(sc,v){
+    const y=this.Y(sc,v);
+    return `<rect x="${this.xT-6}" y="${f1(y)}" width="12" height="${f1(500-y)}" class="s-liq"/>`;
+  },
+  pick(sc,p){ return sc.min + (this.yb-p.y)/(this.yb-this.yt)*(sc.max-sc.min); },
+  subj:'vedelikusamba ots'
+};
+
+T.spring = { cls:'v', vb:'0 0 240 580', xs:140, yt:84, yb:470,
+  Y(sc,v){ return this.yt + (v-sc.min)/(sc.max-sc.min)*(this.yb-this.yt); },
+  stat(sc){
+    const xs=this.xs;
+    let s=`<circle cx="${xs}" cy="22" r="11" class="s-rod"/><line x1="${xs}" y1="33" x2="${xs}" y2="44" class="s-rod"/>`+
+          `<rect x="40" y="44" width="160" height="466" rx="12" class="s-body"/>`+
+          `<rect x="${xs-9}" y="62" width="18" height="430" rx="9" class="s-slot"/>`;
+    for(let i=0;i<=sc.N;i++){
+      const y=f1(this.Y(sc,val(sc,i))), c=tickCls(sc,i), len=c==='mj'?30:c==='md'?20:12;
+      s+=`<line x1="${xs-16}" y1="${y}" x2="${xs-16-len}" y2="${y}" class="s-tick ${c}"/>`;
+      if(c==='mj') s+=`<text x="${xs-54}" y="${f1(+y+6)}" text-anchor="end" class="s-lbl">${fmt(val(sc,i))}</text>`;
+    }
+    s+=`<text x="${xs+40}" y="${this.yb+18}" text-anchor="end" class="s-unit">N</text>`;
+    return s;
+  },
+  ptr(sc,v){
+    const xs=this.xs, y=this.Y(sc,v), y0=64, y1=y-5, n=14, seg=(y1-y0)/n;
+    let d=`M${xs} ${y0}`;
+    for(let j=1;j<=n;j++){ const x = j===n ? xs : xs + (j%2 ? 6 : -6); d+=` L${x} ${f1(y0+seg*j)}`; }
+    return `<path d="${d}" class="s-spring"/>`+
+      `<line x1="${xs}" y1="${f1(y)}" x2="${xs}" y2="540" class="s-rod"/>`+
+      `<path d="M${xs} 540 v12 a11 11 0 1 1 -18 8" class="s-rod"/>`+
+      `<rect x="${xs-13}" y="${f1(y-4)}" width="26" height="8" rx="2" class="s-ndl"/>`+
+      `<polygon points="${xs-16},${f1(y)} ${xs-8},${f1(y-6)} ${xs-8},${f1(y+6)}" class="s-ndl"/>`;
+  },
+  pick(sc,p){ return sc.min + (p.y-this.yt)/(this.yb-this.yt)*(sc.max-sc.min); },
+  subj:'osuti'
+};
+
+function dialP(cx,cy,a,r){ return [cx + r*Math.sin(a*DEG), cy - r*Math.cos(a*DEG)]; }
+function needle(cx,cy,a,R){
+  const [x,y]=dialP(cx,cy,a,R-16), [tx,ty]=dialP(cx,cy,a+180,24);
+  return `<line x1="${f1(tx)}" y1="${f1(ty)}" x2="${f1(x)}" y2="${f1(y)}" class="s-ndl" stroke-width="4" stroke-linecap="round"/>`+
+         `<circle cx="${cx}" cy="${cy}" r="11" class="s-hub"/><circle cx="${cx}" cy="${cy}" r="4" class="s-ndl"/>`;
+}
+function dialTicks(sc,cx,cy,R,angleOf,from,to){
+  let s='';
+  for(let i=from;i<=to;i++){
+    const a=angleOf(val(sc,i)), c=tickCls(sc,i), len=c==='mj'?22:c==='md'?15:9;
+    const [x1,y1]=dialP(cx,cy,a,R), [x2,y2]=dialP(cx,cy,a,R-len);
+    s+=`<line x1="${f1(x1)}" y1="${f1(y1)}" x2="${f1(x2)}" y2="${f1(y2)}" class="s-tick ${c}"/>`;
+  }
+  return s;
+}
+function dialLabel(cx,cy,a,R,text){
+  const [x,y]=dialP(cx,cy,a,R-44);
+  return `<text x="${f1(x)}" y="${f1(y)}" text-anchor="middle" dominant-baseline="central" class="s-lbl">${text}</text>`;
+}
+
+T.arc = { cls:'d', vb:'0 0 400 380', cx:200, cy:200, R:150, a0:-135, a1:135,
+  A(sc,v){ return this.a0 + (v-sc.min)/(sc.max-sc.min)*(this.a1-this.a0); },
+  stat(sc){
+    const {cx,cy,R}=this;
+    let s=`<circle cx="${cx}" cy="${cy}" r="172" class="s-body"/>`;
+    s+=dialTicks(sc,cx,cy,R,v=>this.A(sc,v),0,sc.N);
+    for(let i=0;i<=sc.N;i+=sc.k) s+=dialLabel(cx,cy,this.A(sc,val(sc,i)),R,fmt(val(sc,i)));
+    s+=`<text x="${cx}" y="${cy+78}" text-anchor="middle" class="s-unit">${sc.unit}</text>`;
+    return s;
+  },
+  ptr(sc,v){ return needle(this.cx,this.cy,this.A(sc,v),this.R); },
+  pick(sc,p){
+    let th=Math.atan2(p.x-this.cx, this.cy-p.y)/DEG;
+    th=Math.max(this.a0,Math.min(this.a1,th));
+    return sc.min + (th-this.a0)/(this.a1-this.a0)*(sc.max-sc.min);
+  },
+  subj:'osuti'
+};
+
+T.circle = { cls:'d', vb:'0 0 400 410', cx:200, cy:224, R:150,
+  A(sc,v){ return (v-sc.min)/(sc.max-sc.min)*360; },
+  stat(sc){
+    const {cx,cy,R}=this;
+    let s=`<rect x="186" y="10" width="28" height="20" rx="4" class="s-body"/><rect x="193" y="30" width="14" height="24" class="s-body"/>`+
+          `<circle cx="${cx}" cy="${cy}" r="172" class="s-body"/>`;
+    s+=dialTicks(sc,cx,cy,R,v=>this.A(sc,v),0,sc.N-1);
+    for(let i=sc.k;i<=sc.N;i+=sc.k) s+=dialLabel(cx,cy,this.A(sc,val(sc,i)),R,fmt(val(sc,i)));
+    s+=`<text x="${cx}" y="${cy+78}" text-anchor="middle" class="s-unit">s</text>`;
+    return s;
+  },
+  ptr(sc,v){ return needle(this.cx,this.cy,this.A(sc,v),this.R); },
+  pick(sc,p){
+    const th=(Math.atan2(p.x-this.cx, this.cy-p.y)/DEG + 360) % 360;
+    return sc.min + th/360*(sc.max-sc.min);
+  },
+  subj:'osuti'
+};
+
+function idxFromValue(sc,v){
+  let i=Math.round((v-sc.min)/sc.d);
+  if(sc.type==='circle') i=((i%sc.N)+sc.N)%sc.N;
+  return Math.max(0,Math.min(sc.N,i));
+}
+
+/* ---------- olek ---------- */
+const state = { mode:1, enabled:new Set(UNITS.map(u=>u.u)), sc:null, idx:0, target:0, cur:0, attempted:false, lastU:null };
+const score = { total:0, first:0 };
+
+function chooseIdx(sc){
+  for(let t=0;t<60;t++){ const i=rnd(1,sc.N-1); if(i%sc.k!==0 || Math.random()<0.15) return i; }
+  return 1;
+}
+
+function newTask(){
+  const pool=UNITS.filter(u=>state.enabled.has(u.u));
+  let c=pick(pool);
+  if(pool.length>1){ let g=0; while(c.u===state.lastU && g++<20) c=pick(pool); }
+  state.lastU=c.u;
+  state.sc=genScale(c);
+  state.attempted=false;
+  if(state.mode===2) state.idx=chooseIdx(state.sc);
+  if(state.mode===3){ state.target=chooseIdx(state.sc); state.cur=0; }
+  renderInstrument();
+  renderPanel();
+}
+
+/* ---------- mõõteriista kuvamine ---------- */
+function renderInstrument(){
+  const sc=state.sc, t=T[sc.type];
+  let v=null;
+  if(state.mode===1) v = sc.type==='h' ? null : sc.min;
+  if(state.mode===2) v = val(sc,state.idx);
+  if(state.mode===3) v = val(sc,state.cur);
+  const live = state.mode===3;
+  $('#inst-name').textContent = sc.name;
+  const a11y = live
+    ? `role="slider" tabindex="0" aria-label="${sc.name}: ${t.subj}" aria-valuemin="${sc.min}" aria-valuemax="${sc.max}" aria-valuenow="${v}" aria-valuetext="${fmt(v)} ${sc.unit}"`
+    : `role="img" aria-label="${sc.name}, ühik ${sc.unit}"`;
+  $('#stage').innerHTML =
+    `<svg id="inst" class="${t.cls}${live?' live':''}" viewBox="${t.vb}" xmlns="http://www.w3.org/2000/svg" ${a11y}>`+
+    `<g>${t.stat(sc)}</g><g id="ptr">${v===null?'':t.ptr(sc,v)}</g></svg>`;
+  if(live) bindDrag($('#inst'));
+}
+
+function setCur(i){
+  const sc=state.sc, t=T[sc.type];
+  if(i===state.cur) return;
+  state.cur=i;
+  const v=val(sc,i);
+  $('#ptr').innerHTML=t.ptr(sc,v);
+  const svg=$('#inst');
+  svg.setAttribute('aria-valuenow',v);
+  svg.setAttribute('aria-valuetext',fmt(v)+' '+sc.unit);
+  const fb=$('#fb'); if(fb && fb.classList.contains('bad')){ fb.innerHTML=''; fb.className='fb'; }
+}
+
+function bindDrag(svg){
+  let drag=false;
+  const move=e=>{
+    const pt=svg.createSVGPoint(); pt.x=e.clientX; pt.y=e.clientY;
+    const p=pt.matrixTransform(svg.getScreenCTM().inverse());
+    setCur(idxFromValue(state.sc, T[state.sc.type].pick(state.sc,p)));
+  };
+  svg.addEventListener('pointerdown',e=>{ drag=true; svg.setPointerCapture(e.pointerId); move(e); e.preventDefault(); svg.focus({preventScroll:true}); });
+  svg.addEventListener('pointermove',e=>{ if(drag) move(e); });
+  svg.addEventListener('pointerup',()=>{ drag=false; });
+  svg.addEventListener('pointercancel',()=>{ drag=false; });
+  svg.addEventListener('keydown',e=>{
+    const sc=state.sc, circ=sc.type==='circle', top=circ?sc.N-1:sc.N;
+    let i=state.cur;
+    const step={ArrowUp:1,ArrowRight:1,ArrowDown:-1,ArrowLeft:-1,PageUp:sc.k,PageDown:-sc.k}[e.key];
+    if(step!==undefined){
+      // dünamomeetril kasvab skaala allapoole, nii et nool alla suurendab näitu
+      const s = (sc.type==='spring' && (e.key==='ArrowUp'||e.key==='ArrowDown')) ? -step : step;
+      i = circ ? ((i+s)%sc.N+sc.N)%sc.N : Math.max(0,Math.min(top,i+s));
+    } else if(e.key==='Home') i=0;
+    else if(e.key==='End') i=top;
+    else if(e.key==='Enter'){ check(); e.preventDefault(); return; }
+    else return;
+    e.preventDefault(); setCur(i);
+  });
+}
+
+/* ---------- ülesande paneel ---------- */
+function field(id,label){ return `<input id="${id}" inputmode="decimal" autocomplete="off" aria-label="${label}"><span class="mark" id="${id}-m" aria-hidden="true"></span>`; }
+
+function renderPanel(){
+  const sc=state.sc, u=sc.unit;
+  let h='';
+  if(state.mode===1){
+    h=`<p class="prompt">Vaata skaalat ja leia selle andmed.</p>
+      <div class="row"><span class="lab">Mõõtepiirkond</span><div class="inline">${field('f-lo','Mõõtepiirkonna algus')}<span>…</span>${field('f-hi','Mõõtepiirkonna lõpp')}<span class="u">${u}</span></div></div>
+      <div class="row"><span class="lab">Jaotise väärtus</span><div class="inline">${field('f-d','Jaotise väärtus')}<span class="u">${u}</span></div></div>
+      <div class="row"><span class="lab">Mõõtmistäpsus</span><div class="inline"><span>±</span>${field('f-a','Mõõtmistäpsus')}<span class="u">${u}</span></div></div>`;
+  } else if(state.mode===2){
+    const what = sc.type==='thermo' ? 'termomeetri näit' : 'mõõteriista näit';
+    h=`<p class="prompt">Loe ${what} koos mõõtmistäpsusega.</p>
+      <div class="row"><span class="lab">Mõõtmistulemus</span><div class="inline">${field('f-v','Näit')}<span>±</span>${field('f-a','Mõõtmistäpsus')}<span class="u">${u}</span></div></div>`;
+  } else {
+    const verb = sc.type==='thermo' ? 'Lohista vedelikusammast nii, et termomeeter näitaks' : 'Sea osuti nii, et mõõteriist näitaks';
+    h=`<p class="prompt">${verb}<span class="target">${fmt(val(sc,state.target))} ${u}</span></p>
+      <p class="hint">Lohista hiire või sõrmega. Klaviatuuril liigutavad nooleklahvid ühe jaotise kaupa.</p>`;
+  }
+  h+=`<div class="btns"><button class="btn primary" id="b-check">Kontrolli</button><button class="btn" id="b-sol">Näita lahendust</button><button class="btn" id="b-new">Uus ülesanne</button></div>
+      <div class="fb" id="fb" aria-live="polite"></div>`;
+  $('#task').innerHTML=h;
+  $('#b-check').onclick=check;
+  $('#b-sol').onclick=showSolution;
+  $('#b-new').onclick=newTask;
+  document.querySelectorAll('#task input').forEach(inp=>{
+    inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); check(); } });
+    inp.addEventListener('input',()=>{ inp.classList.remove('ok','bad'); const m=$('#'+inp.id+'-m'); if(m){ m.textContent=''; m.className='mark'; } });
+  });
+}
+
+function mark(id,ok){
+  const inp=$('#'+id), m=$('#'+id+'-m');
+  inp.classList.remove('ok','bad'); inp.classList.add(ok?'ok':'bad');
+  m.className='mark '+(ok?'ok':'bad'); m.textContent=ok?'✓':'✗';
+}
+function num(id){ return parseNum($('#'+id).value); }
+
+function feedback(ok,head,body){
+  const fb=$('#fb');
+  fb.className='fb '+(ok?'ok':'bad');
+  fb.innerHTML=`<p class="head">${head}</p>${body||''}`;
+}
+
+function count(ok){
+  if(state.attempted) return;
+  state.attempted=true; score.total++; if(ok) score.first++;
+  $('#sc-first').textContent=score.first; $('#sc-total').textContent=score.total;
+}
+
+/* ---------- selgitused ---------- */
+function locate(sc,i){ const b=Math.floor(i/sc.k)*sc.k; return {b, m:i-b, a:val(sc,b)}; }
+function baseName(sc,b){ return (sc.type==='circle' && b===0) ? '0 (skaala algus ülal)' : fmt(val(sc,b)); }
+
+function expScale(sc){
+  const u=sc.unit, j=sc.N>=2*sc.k?1:0, a=R6(sc.min+j*sc.ls), b=R6(a+sc.ls);
+  let h = sc.type==='circle'
+    ? `<p>Stopperi skaala algab nullist (ülal) ja ring lõpeb arvu ${fmt(sc.max)} juures, seega mõõtepiirkond on 0 … ${fmt(sc.max)} s.</p>`
+    : `<p>Mõõtepiirkond ulatub skaala väikseimast väärtusest suurimani: ${fmt(sc.min)} … ${fmt(sc.max)} ${u}.</p>`;
+  h+=`<p>Jaotise väärtuse leidmiseks vali kaks kõrvuti asuvat arvu, näiteks ${fmt(a)} ja ${fmt(b)}. Nende vahe on ${fmt(b)} − ${fmtSub(a)} = ${fmt(sc.ls)} ${u}. Nende arvude vahel on ${sc.k} jaotist, seega jaotise väärtus on ${fmt(sc.ls)} : ${sc.k} = ${fmt(sc.d)} ${u}.</p>`;
+  h+=`<p>Mõõtmistäpsus on pool jaotise väärtusest: ${fmt(sc.d)} : 2 = ${fmt(sc.d/2)} ${u}.</p>`;
+  return h;
+}
+function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function expRead(sc,i){
+  const u=sc.unit, {b,m,a}=locate(sc,i), v=val(sc,i), subj=cap(T[sc.type].subj);
+  let h=`<p>Jaotise väärtus on ${fmt(sc.d)} ${u}.</p>`;
+  h+= m===0
+    ? `<p>${subj} on täpselt arvu ${baseName(sc,b)} kohal.</p>`
+    : `<p>${subj} on ${m} ${jw(m)} pärast arvu ${baseName(sc,b)}, seega näit on ${fmt(a)} + ${m} · ${fmt(sc.d)} = ${fmt(v)} ${u}.</p>`;
+  h+=`<p>Mõõtmistäpsus on pool jaotise väärtusest, ± ${fmt(sc.d/2)} ${u}. Mõõtmistulemus: ${fmt(v)} ± ${fmt(sc.d/2)} ${u}.</p>`;
+  return h;
+}
+function expSet(sc,i){
+  const u=sc.unit, {b,m,a}=locate(sc,i), v=val(sc,i), subj=T[sc.type].subj;
+  if(m===0) return `<p>Arv ${fmt(v)} on skaalal kirjas, seega peab ${subj} olema täpselt selle arvu kohal.</p>`;
+  return `<p>Jaotise väärtus on ${fmt(sc.d)} ${u}. Lähim väiksem arv skaalal on ${baseName(sc,b)}. ${fmt(v)} − ${fmtSub(a)} = ${fmt(m*sc.d)} ${u}, mis teeb ${fmt(m*sc.d)} : ${fmt(sc.d)} = ${m} ${jw(m)}.</p>`+
+         `<p>Seega peab ${subj} olema ${m} ${jw(m)} pärast arvu ${baseName(sc,b)}.</p>`;
+}
+
+/* ---------- kontroll ja lahendus ---------- */
+const HALF = '<p>Meeldetuletus: mõõtmistäpsus on pool jaotise väärtusest.</p>';
+const DIV  = '<p>Jaotise väärtus = kahe kõrvuti asuva arvu vahe : jaotiste arv nende vahel.</p>';
+
+function check(){
+  const sc=state.sc, d=sc.d;
+  if(state.mode===1){
+    const okLo=same(num('f-lo'),sc.min,d), okHi=same(num('f-hi'),sc.max,d),
+          okD=same(num('f-d'),d,d), okA=same(num('f-a'),d/2,d);
+    mark('f-lo',okLo); mark('f-hi',okHi); mark('f-d',okD); mark('f-a',okA);
+    const all=okLo&&okHi&&okD&&okA; count(all);
+    if(all) feedback(true,'Õige!',expScale(sc));
+    else feedback(false,'Punasega märgitud vastused on valed. Proovi uuesti või vaata lahendust.',
+      (!okD?DIV:'')+(okD&&!okA?HALF:''));
+  } else if(state.mode===2){
+    const v=val(sc,state.idx), okV=same(num('f-v'),v,d), okA=same(num('f-a'),d/2,d);
+    mark('f-v',okV); mark('f-a',okA);
+    const all=okV&&okA; count(all);
+    if(all) feedback(true,'Õige!',expRead(sc,state.idx));
+    else feedback(false,'Punasega märgitud vastused on valed. Proovi uuesti või vaata lahendust.',
+      (!okV?'<p>Leia esmalt jaotise väärtus, siis loe, mitu jaotist on näit viimasest arvust edasi.</p>':'')+(!okA?HALF:''));
+  } else {
+    const ok=state.cur===state.target; count(ok);
+    if(ok) feedback(true,'Õige!',expSet(sc,state.target));
+    else feedback(false,'Veel mitte.',`<p>Praegu näitab mõõteriist ${fmt(val(sc,state.cur))} ${sc.unit}. Proovi uuesti või vaata lahendust.</p>`);
+  }
+}
+
+function showSolution(){
+  const sc=state.sc;
+  count(false);
+  if(state.mode===1){
+    $('#f-lo').value=fmt(sc.min); $('#f-hi').value=fmt(sc.max); $('#f-d').value=fmt(sc.d); $('#f-a').value=fmt(sc.d/2);
+    ['f-lo','f-hi','f-d','f-a'].forEach(id=>mark(id,true));
+    feedback(true,'Lahendus',expScale(sc));
+  } else if(state.mode===2){
+    $('#f-v').value=fmt(val(sc,state.idx)); $('#f-a').value=fmt(sc.d/2);
+    mark('f-v',true); mark('f-a',true);
+    feedback(true,'Lahendus',expRead(sc,state.idx));
+  } else {
+    setCur(state.target);
+    feedback(true,'Lahendus',expSet(sc,state.target));
+  }
+}
+
+/* ---------- vahelehed ja ühikud ---------- */
+document.querySelectorAll('.tabs button').forEach(b=>{
+  b.addEventListener('click',()=>{
+    state.mode=+b.dataset.mode;
+    document.querySelectorAll('.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b?'true':'false'));
+    newTask();
+  });
+});
+
+const chips=$('#chips');
+UNITS.forEach(cfg=>{
+  const c=document.createElement('button');
+  c.className='chip'; c.type='button'; c.textContent=cfg.u; c.setAttribute('aria-pressed','true');
+  c.addEventListener('click',()=>{
+    const on=state.enabled.has(cfg.u);
+    if(on && state.enabled.size===1) return; // vähemalt üks ühik peab jääma
+    on ? state.enabled.delete(cfg.u) : state.enabled.add(cfg.u);
+    c.setAttribute('aria-pressed',on?'false':'true');
+    newTask();
+  });
+  chips.appendChild(c);
+});
+
+newTask();
+})();
+</script>
+</body>
+</html>
