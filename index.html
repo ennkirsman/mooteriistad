@@ -107,6 +107,8 @@ input.bad{border-color:var(--bad)}
 .mark{font-weight:700;min-width:1.2em}
 .mark.ok{color:var(--ok)}
 .mark.bad{color:var(--bad)}
+.opt{display:flex;align-items:center;gap:10px;width:fit-content;margin:0 0 16px;font-weight:700;cursor:pointer}
+.opt input{width:1.25em;height:1.25em;padding:0;margin:0;accent-color:var(--accent);cursor:pointer}
 .hint{color:var(--muted);font-size:.95rem;margin:0 0 16px}
 .btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
 .btn{font:inherit;font-weight:700;padding:10px 16px;border-radius:10px;border:2px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer}
@@ -415,7 +417,8 @@ function idxFromValue(sc,v){
 
 /* ---------- olek ---------- */
 function loadLevel(){ try{ const v=+localStorage.getItem('skaala-level'); return LEVELS[v]?v:1; }catch(e){ return 1; } }
-const state = { mode:1, level:loadLevel(), enabled:new Set(CATALOG.map(c=>c.u)), sc:null, idx:0, target:0, cur:0, attempted:false, lastU:null, lastNr:null, note:'' };
+function loadAcc(){ try{ return localStorage.getItem('skaala-tapsus')!=='0'; }catch(e){ return true; } }
+const state = { mode:1, level:loadLevel(), withAcc:loadAcc(), enabled:new Set(CATALOG.map(c=>c.u)), sc:null, idx:0, target:0, cur:0, attempted:false, lastU:null, lastNr:null, note:'' };
 const score = { total:0, first:0 };
 
 function chooseIdx(sc){
@@ -523,8 +526,10 @@ function renderPanel(){
       <div class="row"><span class="lab">Mõõtmistäpsus</span><div class="inline"><span>±</span>${field('f-a','Mõõtmistäpsus')}<span class="u">${u}</span></div></div>`;
   } else if(state.mode===2){
     const what = sc.type==='thermo' ? 'termomeetri näit' : 'mõõteriista näit';
-    h=`<p class="prompt">Loe ${what} koos mõõtmistäpsusega.</p>
-      <div class="row"><span class="lab">Mõõtmistulemus</span><div class="inline">${field('f-v','Näit')}<span>±</span>${field('f-a','Mõõtmistäpsus')}<span class="u">${u}</span></div></div>`;
+    const acc=state.withAcc;
+    h=`<label class="opt"><input type="checkbox" id="f-acc"${acc?' checked':''}> Koos mõõtmistäpsusega</label>
+      <p class="prompt">Loe ${what}${acc?' koos mõõtmistäpsusega':''}.</p>
+      <div class="row"><span class="lab">Mõõtmistulemus</span><div class="inline">${field('f-v','Näit')}${acc?`<span>±</span>${field('f-a','Mõõtmistäpsus')}`:''}<span class="u">${u}</span></div></div>`;
   } else {
     const verb = sc.type==='thermo' ? 'Lohista vedelikusammast nii, et termomeeter näitaks' : 'Sea osuti nii, et mõõteriist näitaks';
     h=`<p class="prompt">${verb}<span class="target">${fmt(val(sc,state.target))} ${u}</span></p>
@@ -537,7 +542,14 @@ function renderPanel(){
   $('#b-check').onclick=check;
   $('#b-sol').onclick=showSolution;
   $('#b-new').onclick=newTask;
-  document.querySelectorAll('#task input').forEach(inp=>{
+  const accBox=$('#f-acc');
+  if(accBox) accBox.addEventListener('change',()=>{
+    state.withAcc=accBox.checked;
+    try{ localStorage.setItem('skaala-tapsus',state.withAcc?'1':'0'); }catch(e){}
+    const v=$('#f-v').value;           // sama ülesanne jääb, sisestatud näit säilib
+    renderPanel(); $('#f-v').value=v; $('#f-acc').focus();
+  });
+  document.querySelectorAll('#task input[inputmode]').forEach(inp=>{
     inp.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); check(); } });
     inp.addEventListener('input',()=>{ inp.classList.remove('ok','bad'); const m=$('#'+inp.id+'-m'); if(m){ m.textContent=''; m.className='mark'; } });
   });
@@ -576,13 +588,15 @@ function expScale(sc){
   return h;
 }
 function cap(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
-function expRead(sc,i){
+function expRead(sc,i,acc){
   const u=sc.unit, {b,m,a}=locate(sc,i), v=val(sc,i), subj=cap(T[sc.type].subj);
   let h=`<p>Jaotise väärtus on ${fmt(sc.d)} ${u}.</p>`;
   h+= m===0
     ? `<p>${subj} on täpselt arvu ${baseName(sc,b)} kohal.</p>`
     : `<p>${subj} on ${m} ${jw(m)} pärast arvu ${baseName(sc,b)}, seega näit on ${fmt(a)} + ${m} · ${fmt(sc.d)} = ${fmt(v)} ${u}.</p>`;
-  h+=`<p>Mõõtmistäpsus on pool jaotise väärtusest, ± ${fmt(sc.d/2)} ${u}. Mõõtmistulemus: ${fmt(v)} ± ${fmt(sc.d/2)} ${u}.</p>`;
+  h+= acc
+    ? `<p>Mõõtmistäpsus on pool jaotise väärtusest, ± ${fmt(sc.d/2)} ${u}. Mõõtmistulemus: ${fmt(v)} ± ${fmt(sc.d/2)} ${u}.</p>`
+    : `<p>Mõõtmistulemus: ${fmt(v)} ${u}.</p>`;
   return h;
 }
 function expSet(sc,i){
@@ -607,11 +621,11 @@ function check(){
     else feedback(false,'Punasega märgitud vastused on valed. Proovi uuesti või vaata lahendust.',
       (!okD?DIV:'')+(okD&&!okA?HALF:''));
   } else if(state.mode===2){
-    const v=val(sc,state.idx), okV=same(num('f-v'),v,d), okA=same(num('f-a'),d/2,d);
-    mark('f-v',okV); mark('f-a',okA);
+    const acc=state.withAcc, v=val(sc,state.idx), okV=same(num('f-v'),v,d), okA=!acc || same(num('f-a'),d/2,d);
+    mark('f-v',okV); if(acc) mark('f-a',okA);
     const all=okV&&okA; count(all);
-    if(all) feedback(true,'Õige!',expRead(sc,state.idx));
-    else feedback(false,'Punasega märgitud vastused on valed. Proovi uuesti või vaata lahendust.',
+    if(all) feedback(true,'Õige!',expRead(sc,state.idx,acc));
+    else feedback(false,acc?'Punasega märgitud vastused on valed. Proovi uuesti või vaata lahendust.':'Vastus on vale. Proovi uuesti või vaata lahendust.',
       (!okV?'<p>Leia esmalt jaotise väärtus, siis loe, mitu jaotist on näit viimasest arvust edasi.</p>':'')+(!okA?HALF:''));
   } else {
     const ok=state.cur===state.target; count(ok);
@@ -628,9 +642,9 @@ function showSolution(){
     ['f-lo','f-hi','f-d','f-a'].forEach(id=>mark(id,true));
     feedback(true,'Lahendus',expScale(sc));
   } else if(state.mode===2){
-    $('#f-v').value=fmt(val(sc,state.idx)); $('#f-a').value=fmt(sc.d/2);
-    mark('f-v',true); mark('f-a',true);
-    feedback(true,'Lahendus',expRead(sc,state.idx));
+    $('#f-v').value=fmt(val(sc,state.idx)); mark('f-v',true);
+    if(state.withAcc){ $('#f-a').value=fmt(sc.d/2); mark('f-a',true); }
+    feedback(true,'Lahendus',expRead(sc,state.idx,state.withAcc));
   } else {
     setCur(state.target);
     feedback(true,'Lahendus',expSet(sc,state.target));
