@@ -120,6 +120,13 @@ input.bad{border-color:var(--bad)}
 .fb.ok .head{color:var(--ok)}
 .fb.bad .head{color:var(--bad)}
 
+.foot{margin:28px 0 0;color:var(--muted);font-size:.95rem}
+a{color:var(--accent)}
+.cat{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;margin-top:16px}
+.cat-item{margin:0;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px}
+.cat-item svg{display:block;width:100%;height:210px}
+.cat-item svg.h{height:auto;margin:50px 0}
+.cat-item figcaption{font-size:.9rem;margin-top:6px;line-height:1.35}
 button:focus-visible,summary:focus-visible,svg:focus-visible{outline:3px solid var(--accent);outline-offset:3px;border-radius:8px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -160,8 +167,10 @@ button:focus-visible,summary:focus-visible,svg:focus-visible{outline:3px solid v
     </section>
     <section class="task" id="task" aria-live="off"></section>
   </main>
+  <p class="foot"><a href="#kataloog">Vaata kõiki skaalasid</a></p>
 </div>
 
+<script src="skaalad.js"></script>
 <script>
 (function(){
 'use strict';
@@ -187,37 +196,15 @@ const val = (sc,i) => R6(sc.min + i*sc.d);
 const tickCls = (sc,i) => i%sc.k===0 ? 'mj' : (sc.k%2===0 && i%(sc.k/2)===0 ? 'md' : 'mn');
 const jw = m => m===1 ? 'jaotis' : 'jaotist';
 
-/* ---------- mõõteriistad ja ühikud ---------- */
-const UNITS = [
-  {u:'mm',   name:'Joonlaud',        type:'h',      ds:[0.5,1,2],          N:[16,50]},
-  {u:'cm',   name:'Joonlaud',        type:'h',      ds:[0.1,0.2,0.5,1],    N:[16,50]},
-  {u:'m',    name:'Mõõdulint',       type:'h',      ds:[0.1,0.2,0.5,1,2],  N:[16,50]},
-  {u:'km',   name:'Kaardi mõõtkava', type:'h',      ds:[1,2,5,10],         N:[10,40]},
-  {u:'N',    name:'Dünamomeeter',    type:'spring', ds:[0.1,0.2,0.5,1],    N:[10,50]},
-  {u:'°C',   name:'Termomeeter',     type:'thermo', ds:[0.1,0.2,0.5,1,2,5],N:[16,60]},
-  {u:'s',    name:'Stopper',         type:'circle', ds:[0.2,0.5,1],        N:[30,60], maxes:[10,15,20,30,60]},
-  {u:'km/h', name:'Spidomeeter',     type:'arc',    ds:[1,2,5,10],         N:[16,60]},
-  {u:'m/s',  name:'Kiirusemõõtja',   type:'arc',    ds:[0.1,0.2,0.5,1,2],  N:[16,60]},
-  {u:'J',    name:'Energiamõõtja',   type:'arc',    ds:[0.5,1,2,5,10,20],  N:[16,50]}
-];
-
-/* ---------- raskusastmed ----------
-   Kerge: iga mõõteriista oma jaotise väärtused, skaala algab nullist
-          (termomeetril ka miinuskraadidest või kraadiklaasi vahemikust).
-   Paras: murdarvulised jaotise väärtused 0,1; 0,2; 0,4; 0,5, skaala algab nullist.
-   Raske: väga väikesed jaotise väärtused 0,01 … 0,25, skaala algab suvalisest
-          täisarvust (stopperil alati nullist). */
+/* ---------- skaalade kataloog (andmed failis skaalad.js) ---------- */
+const TYPE_OF = {mm:'h', cm:'h', m:'h', km:'h', N:'spring', '°C':'thermo', s:'circle'}; // muud ühikud: ümar osutiga skaala
+const UNIT_ORDER = ['mm','cm','m','km','N','°C','s','km/h','m/s','J','A','mA','V','mV','W','mW','kPa','kg'];
+const MAXN = {h:80, thermo:72, spring:60, arc:80, circle:80};   // kriipse kõige rohkem
 const LEVELS = {
-  1:{name:'Kerge', mant:[1,2,5],     major:0.15},
-  2:{name:'Paras', mant:[1,2,4,5],   major:0.05, ds:[0.1,0.2,0.4,0.5]},
-  3:{name:'Raske', mant:[1,2,2.5,5], major:0,    ds:[0.01,0.02,0.025,0.05,0.25]}
+  1:{name:'Kerge', major:0.15},  // major: kui tihti satub näit täpselt nummerdatud kriipsule
+  2:{name:'Paras', major:0.05},
+  3:{name:'Raske', major:0}
 };
-
-// kahe kõrvuti asuva arvu vahe peab olema "ilus": mantiss lubatud hulgast
-function mantOk(x,mant){
-  const e = Math.floor(Math.log10(x)+1e-9);
-  return mant.includes(R6(x/Math.pow(10,e)));
-}
 
 // kas skaala arvud mahuvad üksteist ja mõõteriista serva puudutamata ära
 function labelsFit(sc){
@@ -229,48 +216,76 @@ function labelsFit(sc){
   return w<=6 && 386/L>=24;
 }
 
-function genScale(cfg,lv){
-  const LV = LEVELS[lv], ds = LV.ds || cfg.ds;
-  for(let t=0;t<5000;t++){
-    const d = pick(ds), k = pick([2,4,5,10]), ls = R6(d*k);
-    if(!mantOk(ls,LV.mant)) continue;
-    const L = rnd(2,12), N = k*L;
-    if(N<cfg.N[0] || N>cfg.N[1]) continue;
-    if(cfg.type==='circle' && L<4) continue;
-    let min = 0;
-    if(lv===1 && cfg.type==='thermo'){
-      if(d<=0.2) min = R6(Math.round(pick([34,35,36])/ls)*ls);
-      else { min = R6(-ls*rnd(0,4)); if(min<-40) continue; }
-    } else if(lv===3 && cfg.type!=='circle'){
-      min = cfg.type==='thermo' ? rnd(-30,40) : rnd(1,30);
-      if(!Number.isInteger(R6(min/ls))) continue; // arvud skaalal on ls kordsed
-    }
-    const max = R6(min + N*d);
-    if(cfg.maxes){
-      if(lv===1 ? !cfg.maxes.includes(max) : !Number.isInteger(max)) continue;
-    }
-    const sc = {min,max,d,k,ls,N,unit:cfg.u,name:cfg.name,type:cfg.type};
-    if(!labelsFit(sc)) continue;
-    return sc;
-  }
-  if(lv>1) return genScale(cfg,lv-1);
-  return {min:0,max:10,d:0.5,k:2,ls:1,N:20,unit:cfg.u,name:cfg.name,type:cfg.type};
+// j = mitmendast nummerdatud vahemikust aken algab
+function makeScale(e,j){
+  const [nimi,u,lo,hi,d,k,lv,win]=e, ls=R6(d*k), type=TYPE_OF[u]||'arc';
+  const L = win ? win : Math.round((hi-lo)/ls), min=R6(lo+j*ls), N=L*k;
+  return {min, max:R6(min+N*d), d, k, ls, N, unit:u, name:nimi, type, lo, hi, win:!!win};
 }
+function allWindows(e){
+  const [, ,lo,hi,d,k,,win]=e;
+  if(!win) return [makeScale(e,0)];
+  const Ltot=Math.round((hi-lo)/(d*k)), out=[];
+  for(let j=0;j<=Ltot-win;j++) out.push(makeScale(e,j));
+  return out;
+}
+
+// kontrollib kataloogi rida; tagastab vea kirjelduse või tühja teksti
+function checkEntry(e){
+  if(!Array.isArray(e) || e.length<7) return 'rida on poolik (vaja vähemalt 7 veergu)';
+  const [nimi,u,lo,hi,d,k,lv,win]=e, type=TYPE_OF[u]||'arc', errs=[];
+  if(typeof nimi!=='string' || !nimi) errs.push('nimi puudub');
+  if(typeof u!=='string' || !u) errs.push('ühik puudub');
+  if(![lo,hi,d,k].every(Number.isFinite)) return 'algus, lõpp, jaotis või k ei ole arv';
+  if(!(hi>lo)) errs.push('lõpp peab olema algusest suurem');
+  if(!(d>0)) errs.push('jaotis peab olema positiivne');
+  if(!Number.isInteger(k) || k<1) errs.push('k peab olema positiivne täisarv');
+  if(![1,2,3].includes(lv)) errs.push('tase peab olema 1, 2 või 3');
+  if(errs.length) return errs.join('; ');
+  const ls=R6(d*k), Ntot=R6((hi-lo)/d), Ltot=R6((hi-lo)/ls);
+  if(!Number.isInteger(Ntot)) errs.push('(lõpp − algus) ei jagu jaotisega');
+  else if(!Number.isInteger(Ltot)) errs.push('skaala lõpus ei oleks arvu: (lõpp − algus) ei jagu arvuga jaotis · k');
+  if(win){
+    if(!Number.isInteger(win) || win<1) errs.push('aken peab olema positiivne täisarv');
+    else if(win>=Ltot) errs.push('aken on sama pikk kui terve skaala, jäta aken ära');
+    if(type!=='h' && type!=='thermo') errs.push('akent saab kasutada ainult joonlaua ja termomeetri puhul');
+  }
+  if(type==='circle' && lo!==0) errs.push('stopperi skaala peab algama nullist');
+  if(errs.length) return errs.join('; ');
+  for(const sc of allWindows(e)){
+    if(sc.N>MAXN[type]) return `liiga palju kriipse (${sc.N}, lubatud kuni ${MAXN[type]})`+(type==='h'||type==='thermo'?'; kasuta väiksemat akent':'');
+    if(!labelsFit(sc)) return 'skaala arvud ei mahu kõrvuti ära (liiga palju või liiga pikad arvud)';
+  }
+  return '';
+}
+
+const CATALOG=[], BAD=[];
+(window.SKAALAD||[]).forEach((e,i)=>{
+  const err=checkEntry(e);
+  if(err) BAD.push({nr:i+1, e, err});
+  else CATALOG.push({nr:i+1, e, u:e[1], lv:e[6], win:!!e[7]});
+});
+if(BAD.length) console.warn('Vigased read failis skaalad.js:', BAD);
 
 /* ---------- skaalade joonistamine ---------- */
 const T = {};
 
+let clipN=0;
 T.h = { cls:'h', vb:'0 30 640 150', x0:44, w:552, top:70,
   X(sc,v){ return this.x0 + (v-sc.min)/(sc.max-sc.min)*this.w; },
   stat(sc){
-    const top=this.top;
-    let s=`<rect x="14" y="${top}" width="612" height="100" rx="6" class="s-body"/>`;
-    for(let i=0;i<=sc.N;i++){
+    const top=this.top, cid='rclip'+(++clipN);
+    let s=`<rect x="14" y="${top}" width="612" height="100" rx="6" class="s-body"/>`+
+          `<clipPath id="${cid}"><rect x="15" y="${top}" width="610" height="100"/></clipPath>`;
+    // lõik algab ja lõpeb nummerdatud (pika) kriipsuga – kriipse lõigust väljapoole ei joonistata
+    const from=0, to=sc.N;
+    s+=`<g clip-path="url(#${cid})">`;
+    for(let i=from;i<=to;i++){
       const x=f1(this.X(sc,val(sc,i))), c=tickCls(sc,i), len=c==='mj'?34:c==='md'?23:14;
       s+=`<line x1="${x}" y1="${top}" x2="${x}" y2="${top+len}" class="s-tick ${c}"/>`;
       if(c==='mj') s+=`<text x="${x}" y="${top+57}" text-anchor="middle" class="s-lbl">${fmt(val(sc,i))}</text>`;
     }
-    s+=`<text x="612" y="${top+89}" text-anchor="end" class="s-unit">${sc.unit}</text>`;
+    s+=`</g><text x="612" y="${top+89}" text-anchor="end" class="s-unit">${sc.unit}</text>`;
     return s;
   },
   ptr(sc,v){
@@ -400,7 +415,7 @@ function idxFromValue(sc,v){
 
 /* ---------- olek ---------- */
 function loadLevel(){ try{ const v=+localStorage.getItem('skaala-level'); return LEVELS[v]?v:1; }catch(e){ return 1; } }
-const state = { mode:1, level:loadLevel(), enabled:new Set(UNITS.map(u=>u.u)), sc:null, idx:0, target:0, cur:0, attempted:false, lastU:null };
+const state = { mode:1, level:loadLevel(), enabled:new Set(CATALOG.map(c=>c.u)), sc:null, idx:0, target:0, cur:0, attempted:false, lastU:null, lastNr:null, note:'' };
 const score = { total:0, first:0 };
 
 function chooseIdx(sc){
@@ -410,11 +425,27 @@ function chooseIdx(sc){
 }
 
 function newTask(){
-  const pool=UNITS.filter(u=>state.enabled.has(u.u));
-  let c=pick(pool);
-  if(pool.length>1){ let g=0; while(c.u===state.lastU && g++<20) c=pick(pool); }
-  state.lastU=c.u;
-  state.sc=genScale(c,state.level);
+  // harjutuses „Skaala andmed“ on vaja tervet skaalat, mitte lõiku
+  const fits = c => state.mode!==1 || !c.win;
+  let pool=CATALOG.filter(c=>fits(c) && state.enabled.has(c.u) && c.lv===state.level);
+  state.note='';
+  if(!pool.length){
+    pool=CATALOG.filter(c=>fits(c) && state.enabled.has(c.u));
+    state.note='Valitud ühikutega sellel raskusastmel siin harjutuses skaalasid pole, seepärast on see skaala teiselt raskusastmelt.';
+  }
+  if(!pool.length){
+    pool=CATALOG.filter(fits);
+    state.note='Valitud ühikutega selles harjutuses skaalasid pole, seepärast on see skaala teise ühikuga.';
+  }
+  // kõigepealt ühik, siis rida – nii tulevad kõik ühikud võrdselt sageli
+  const units=[...new Set(pool.map(c=>c.u))];
+  let u=pick(units);
+  if(units.length>1){ let g=0; while(u===state.lastU && g++<20) u=pick(units); }
+  const rows=pool.filter(c=>c.u===u);
+  let c=pick(rows);
+  if(rows.length>1){ let g=0; while(c.nr===state.lastNr && g++<20) c=pick(rows); }
+  state.lastU=u; state.lastNr=c.nr;
+  state.sc=pick(allWindows(c.e));
   state.attempted=false;
   if(state.mode===2) state.idx=chooseIdx(state.sc);
   if(state.mode===3){ state.target=chooseIdx(state.sc); state.cur=0; }
@@ -499,6 +530,7 @@ function renderPanel(){
     h=`<p class="prompt">${verb}<span class="target">${fmt(val(sc,state.target))} ${u}</span></p>
       <p class="hint">Lohista hiire või sõrmega. Klaviatuuril liigutavad nooleklahvid ühe jaotise kaupa.</p>`;
   }
+  if(state.note) h=`<p class="hint">${state.note}</p>`+h;
   h+=`<div class="btns"><button class="btn primary" id="b-check">Kontrolli</button><button class="btn" id="b-sol">Näita lahendust</button><button class="btn" id="b-new">Uus ülesanne</button></div>
       <div class="fb" id="fb" aria-live="polite"></div>`;
   $('#task').innerHTML=h;
@@ -627,20 +659,44 @@ lvlBtns.forEach(b=>{
 showLevel();
 
 const chips=$('#chips');
-UNITS.forEach(cfg=>{
+const unitList=[...state.enabled].sort((a,b)=>{
+  const ia=UNIT_ORDER.indexOf(a), ib=UNIT_ORDER.indexOf(b);
+  return (ia<0?99:ia)-(ib<0?99:ib);
+});
+unitList.forEach(unit=>{
   const c=document.createElement('button');
-  c.className='chip'; c.type='button'; c.textContent=cfg.u; c.setAttribute('aria-pressed','true');
+  c.className='chip'; c.type='button'; c.textContent=unit; c.setAttribute('aria-pressed','true');
   c.addEventListener('click',()=>{
-    const on=state.enabled.has(cfg.u);
+    const on=state.enabled.has(unit);
     if(on && state.enabled.size===1) return; // vähemalt üks ühik peab jääma
-    on ? state.enabled.delete(cfg.u) : state.enabled.add(cfg.u);
+    on ? state.enabled.delete(unit) : state.enabled.add(unit);
     c.setAttribute('aria-pressed',on?'false':'true');
     newTask();
   });
   chips.appendChild(c);
 });
 
-newTask();
+/* ---------- kataloogi ülevaade (index.html#kataloog) ---------- */
+const esc = x => String(x).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function renderCatalog(){
+  let h=`<header><div><h1>Skaalade kataloog</h1>
+    <p class="sub">Kõik failis <code>skaalad.js</code> kirjeldatud skaalad (${CATALOG.length}). Kui skaalast näidatakse ainult lõiku (aken), on pildil üks juhuslik lõik. <a href="#">Tagasi harjutama</a></p></div></header>`;
+  if(BAD.length) h+=`<div class="fb bad"><p class="head">Vigased read – rakendus neid ei kasuta</p>`+
+    BAD.map(b=>`<p>Nr ${b.nr}: <code>${esc(JSON.stringify(b.e))}</code> – ${esc(b.err)}</p>`).join('')+`</div>`;
+  h+=`<div class="cat">`;
+  CATALOG.forEach(c=>{
+    const [nimi,u,lo,hi,d,k,lv,win]=c.e, sc=pick(allWindows(c.e)), t=T[sc.type];
+    h+=`<figure class="cat-item"><svg class="${t.cls}" viewBox="${t.vb}" role="img" aria-label="${esc(nimi)}">${t.stat(sc)}${sc.type==='h'?'':t.ptr(sc,sc.min)}</svg>`+
+       `<figcaption><b>Nr ${c.nr}. ${esc(nimi)}</b><br>${fmt(lo)} … ${fmt(hi)} ${esc(u)} · jaotis ${fmt(d)} ${esc(u)} · ${LEVELS[lv].name}${win?` · aken ${win}`:''}</figcaption></figure>`;
+  });
+  h+=`</div>`;
+  document.querySelector('.wrap').innerHTML=h;
+}
+window.addEventListener('hashchange',()=>location.reload());
+
+if(location.hash==='#kataloog') renderCatalog();
+else if(!CATALOG.length) $('#task').innerHTML='<p class="prompt">Skaalade kataloog (skaalad.js) on tühi või puudub.</p>';
+else newTask();
 })();
 </script>
 </body>
