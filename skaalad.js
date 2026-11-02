@@ -6,7 +6,8 @@
 
    Veerud:
      nimi    – mõõteriista nimi, mis kuvatakse skaala kohal
-     ühik    – mm, cm, m, km, N, °C, s, km/h, m/s, J, A, V, kPa või kg
+     ühik    – mm, cm, m, km, N, °C, s, km/h, m/s, J, A, mA, V, mV, W, mW,
+               kPa või kg
                (ühik määrab ka mõõteriista kuju: mm/cm/m/km = joonlaud,
                N = dünamomeeter, °C = termomeeter, s = stopper,
                ülejäänud = osutiga ümar skaala)
@@ -23,6 +24,7 @@
 
    Kümnendmurrud kirjuta PUNKTIGA (0.1), mitte komaga.
    Kõiki ridu saab vaadata lehel index.html#kataloog
+   Lõik algab ja lõpeb alati nummerdatud (pika) kriipsuga.
    ===================================================================== */
 
 window.SKAALAD = [
@@ -124,6 +126,23 @@ window.SKAALAD = [
 ['Ampermeeter',                'A',    0,     1,     0.02,   5,  3],
 ['Ampermeeter',                'A',    0,     0.6,   0.02,   5,  3],
 ['Ampermeeter',                'A',    0,     2,     0.05,   4,  3],
+['Ampermeeter',                 'A',    0,     50,    2,      5,  1],
+['Ampermeeter',                 'A',    0,     2,     0.1,    5,  2],
+['Ampermeeter',                 'A',    0,     6,     0.2,    5,  2],
+['Ampermeeter',                 'A',    0,     0.5,   0.01,   10, 3],
+['Ampermeeter',                 'A',    0,     3,     0.05,   10, 3],
+['Milliampermeeter',            'mA',   0,     50,    1,      10, 1],
+['Milliampermeeter',            'mA',   0,     100,   2,      5,  1],
+['Milliampermeeter',            'mA',   0,     250,   5,      10, 1],
+['Milliampermeeter',            'mA',   0,     500,   10,     5,  1],
+['Milliampermeeter',            'mA',   0,     5,     0.1,    10, 2],
+['Milliampermeeter',            'mA',   0,     10,    0.2,    5,  2],
+['Milliampermeeter',            'mA',   0,     20,    0.5,    4,  2],
+['Milliampermeeter',            'mA',   0,     30,    0.5,    10, 2],
+['Milliampermeeter',            'mA',   0,     1,     0.02,   5,  3],
+['Milliampermeeter',            'mA',   0,     2,     0.05,   4,  3],
+['Milliampermeeter',            'mA',   0,     3,     0.05,   10, 3],
+['Milliampermeeter',            'mA',   0,     15,    0.25,   4,  3],
 ['Voltmeeter',                 'V',    0,     30,    1,      5,  1],
 ['Voltmeeter',                 'V',    0,     250,   10,     5,  1],
 ['Voltmeeter',                 'V',    0,     15,    0.5,    10, 2],
@@ -131,6 +150,38 @@ window.SKAALAD = [
 ['Voltmeeter',                 'V',    0,     3,     0.1,    5,  2],
 ['Voltmeeter',                 'V',    0,     3,     0.05,   10, 3],
 ['Voltmeeter',                 'V',    0,     1.5,   0.05,   10, 3],
+['Millivoltmeeter',             'mV',   0,     50,    1,      10, 1],
+['Millivoltmeeter',             'mV',   0,     100,   2,      5,  1],
+['Millivoltmeeter',             'mV',   0,     300,   10,     5,  1],
+['Millivoltmeeter',             'mV',   0,     5,     0.1,    10, 2],
+['Millivoltmeeter',             'mV',   0,     10,    0.2,    5,  2],
+['Millivoltmeeter',             'mV',   0,     20,    0.5,    4,  2],
+['Millivoltmeeter',             'mV',   0,     75,    1,      5,  2],
+['Millivoltmeeter',             'mV',   0,     1,     0.02,   5,  3],
+['Millivoltmeeter',             'mV',   0,     2,     0.05,   4,  3],
+['Millivoltmeeter',             'mV',   0,     3,     0.05,   10, 3],
+['Millivoltmeeter',             'mV',   0,     15,    0.25,   4,  3],
+['Vattmeeter',                  'W',    0,     100,   2,      5,  1],
+['Vattmeeter',                  'W',    0,     500,   10,     5,  1],
+['Vattmeeter',                  'W',    0,     1000,  20,     10, 1],
+['Vattmeeter',                  'W',    0,     150,   5,      6,  2],
+['Vattmeeter',                  'W',    0,     300,   5,      10, 2],
+['Vattmeeter',                  'W',    0,     2000,  50,     8,  2],
+['Vattmeeter',                  'W',    0,     5,     0.1,    10, 2],
+['Vattmeeter',                  'W',    0,     10,    0.2,    5,  2],
+['Vattmeeter',                  'W',    0,     25,    0.5,    10, 2],
+['Vattmeeter',                  'W',    0,     1,     0.02,   5,  3],
+['Vattmeeter',                  'W',    0,     2,     0.05,   4,  3],
+['Vattmeeter',                  'W',    0,     3,     0.05,   10, 3],
+['Millivattmeeter',             'mW',   0,     50,    1,      5,  1],
+['Millivattmeeter',             'mW',   0,     100,   2,      5,  1],
+['Millivattmeeter',             'mW',   0,     500,   10,     5,  1],
+['Millivattmeeter',             'mW',   0,     5,     0.1,    10, 2],
+['Millivattmeeter',             'mW',   0,     10,    0.2,    5,  2],
+['Millivattmeeter',             'mW',   0,     20,    0.5,    4,  2],
+['Millivattmeeter',             'mW',   0,     1,     0.02,   5,  3],
+['Millivattmeeter',             'mW',   0,     2,     0.05,   4,  3],
+['Millivattmeeter',             'mW',   0,     2.5,   0.05,   10, 3],
 ['Manomeeter',                 'kPa',  0,     400,   10,     10, 1],
 ['Manomeeter',                 'kPa',  0,     250,   5,      10, 1],
 ['Manomeeter',                 'kPa',  0,     600,   20,     5,  2],

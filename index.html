@@ -198,7 +198,7 @@ const jw = m => m===1 ? 'jaotis' : 'jaotist';
 
 /* ---------- skaalade kataloog (andmed failis skaalad.js) ---------- */
 const TYPE_OF = {mm:'h', cm:'h', m:'h', km:'h', N:'spring', '°C':'thermo', s:'circle'}; // muud ühikud: ümar osutiga skaala
-const UNIT_ORDER = ['mm','cm','m','km','N','°C','s','km/h','m/s','J','A','V','kPa','kg'];
+const UNIT_ORDER = ['mm','cm','m','km','N','°C','s','km/h','m/s','J','A','mA','V','mV','W','mW','kPa','kg'];
 const MAXN = {h:80, thermo:72, spring:60, arc:80, circle:80};   // kriipse kõige rohkem
 const LEVELS = {
   1:{name:'Kerge', major:0.15},  // major: kui tihti satub näit täpselt nummerdatud kriipsule
@@ -277,13 +277,8 @@ T.h = { cls:'h', vb:'0 30 640 150', x0:44, w:552, top:70,
     const top=this.top, cid='rclip'+(++clipN);
     let s=`<rect x="14" y="${top}" width="612" height="100" rx="6" class="s-body"/>`+
           `<clipPath id="${cid}"><rect x="15" y="${top}" width="610" height="100"/></clipPath>`;
-    // pika skaala lõigu korral jätkuvad kriipsud servadeni
-    let from=0, to=sc.N;
-    if(sc.win){
-      const m=Math.floor(29/(this.w/sc.N));
-      from=Math.max(-m, -Math.round((sc.min-sc.lo)/sc.d));
-      to=Math.min(sc.N+m, sc.N+Math.round((sc.hi-sc.max)/sc.d));
-    }
+    // lõik algab ja lõpeb nummerdatud (pika) kriipsuga – kriipse lõigust väljapoole ei joonistata
+    const from=0, to=sc.N;
     s+=`<g clip-path="url(#${cid})">`;
     for(let i=from;i<=to;i++){
       const x=f1(this.X(sc,val(sc,i))), c=tickCls(sc,i), len=c==='mj'?34:c==='md'?23:14;
